@@ -13,7 +13,13 @@ typedef enum {
   IMG_FMT_RGBA32,
   IMG_FMT_YUV444,
   IMG_FMT_NV12,
-  IMG_FMT_YUV420P
+  IMG_FMT_YUV420P,
+
+  /*Raw Bayer formats */
+  IMG_FMT_BAYER_RGGB,
+  IMG_FMT_BAYER_BGGR,
+  IMG_FMT_BAYER_GBRG,
+  IMG_FMT_BAYER_GRBG,
 } img_format_t;
 
 size_t img_format_bytes_per_pixel(img_format_t format);

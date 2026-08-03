@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/*Image structure */
+/*Image/Frame structure */
 typedef struct {
   uint32_t width;
   uint32_t height;
@@ -13,6 +13,12 @@ typedef struct {
   img_format_t format;
   uint8_t num_planes;
   uint8_t *planes[3];
+
+  /*ISP and V4L2 Streaming Metadat*/
+  uint8_t bit_depth; // Bit depth of the image (e.g., 8, 10, 12)
+  uint64_t timestamp_us; // Microsecond kernel timestamp from V4L2
+  uint32_t frame_seq; // Monotonic Frame counter from V4L2
+  int dbuf_fd; // DMA buffer file descriptor (for zero-copy)
 } img_t;
 
 /*Pixel structure */
