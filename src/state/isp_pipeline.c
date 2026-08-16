@@ -4,9 +4,12 @@
 
 isp_context_t *isp_create(void) {
   printf("[ISP_API] %s()\n", __func__);
-  isp_context_t *ctx = (isp_context_t)calloc(1, sizeof(isp_context_t));
-  if (ctx)
-    ctx->state = ISP_STATE_UNINIT;
+  isp_context_t *ctx = (isp_context_t*)calloc(1, sizeof(isp_context_t));
+  if (!ctx) {
+    printf(" -> ERROR: Memory allocation failed!\n");
+    return NULL;
+  }
+  ctx->state = ISP_STATE_UNINIT;
   return ctx;
 }
 
@@ -14,6 +17,24 @@ int isp_init(isp_context_t *ctx, const isp_config_t *config) {
   printf("[ISP_API] %s()\n", __func__);
   if (!ctx || !config)
     return -1;
+
+  if(config->width == 0 || config->height == 0) {
+    printf(" -> ERROR: Invalid dimensions!\n");
+    ctx->state = ISP_STATE_ERROR;
+    return -1;
+  }
+
+  if(config->input_format == IMG_FMT_UNKNOWN || config->output_format == IMG_FMT_UNKNOWN) {
+    printf(" -> ERROR: Invalid image format!\n");
+    ctx->state = ISP_STATE_ERROR;
+    return -1;
+  }
+
+  if(config->width & 1 || config->height & 1) {
+    printf(" -> ERROR: Width and Height must be even for Bayer 2x2 grid!\n");
+    ctx->state = ISP_STATE_ERROR;
+    return -1;
+  }
 
   ctx->config = *config;
   ctx->r_gain = 1.0f;
