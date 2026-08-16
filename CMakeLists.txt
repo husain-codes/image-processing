@@ -27,6 +27,7 @@ set(RAWFRAME_CORE
     src/core/img_format.c
     src/core/img_convert.c
     src/core/img_pipeline.c
+    src/state/isp_pipeline.c
 )
 
 set(RAWFRAME_IO
@@ -107,3 +108,7 @@ add_test(NAME test_nv12 COMMAND test_nv12)
 add_executable(test_blur tests/test_blur.c)
 target_link_libraries(test_blur rawframe unity)
 add_test(NAME test_blur COMMAND test_blur)
+
+add_executable(test_isp tests/test_isp.c)
+target_link_libraries(test_isp rawframe unity)
+add_test(NAME test_isp COMMAND test_isp)

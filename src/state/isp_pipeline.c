@@ -4,7 +4,7 @@
 
 isp_context_t *isp_create(void) {
   printf("[ISP_API] %s()\n", __func__);
-  isp_context_t *ctx = (isp_context_t*)calloc(1, sizeof(isp_context_t));
+  isp_context_t *ctx = (isp_context_t *)calloc(1, sizeof(isp_context_t));
   if (!ctx) {
     printf(" -> ERROR: Memory allocation failed!\n");
     return NULL;
@@ -18,19 +18,25 @@ int isp_init(isp_context_t *ctx, const isp_config_t *config) {
   if (!ctx || !config)
     return -1;
 
-  if(config->width == 0 || config->height == 0) {
+  if (ctx->state != ISP_STATE_UNINIT) {
+    printf(" -> ERROR: ISP Engine already initialized!\n");
+    return -1;
+  }
+
+  if (config->width == 0 || config->height == 0) {
     printf(" -> ERROR: Invalid dimensions!\n");
     ctx->state = ISP_STATE_ERROR;
     return -1;
   }
 
-  if(config->input_format == IMG_FMT_UNKNOWN || config->output_format == IMG_FMT_UNKNOWN) {
+  if (config->input_format == IMG_FMT_UNKNOWN ||
+      config->output_format == IMG_FMT_UNKNOWN) {
     printf(" -> ERROR: Invalid image format!\n");
     ctx->state = ISP_STATE_ERROR;
     return -1;
   }
 
-  if(config->width & 1 || config->height & 1) {
+  if (config->width & 1 || config->height & 1) {
     printf(" -> ERROR: Width and Height must be even for Bayer 2x2 grid!\n");
     ctx->state = ISP_STATE_ERROR;
     return -1;
@@ -70,6 +76,35 @@ void isp_destroy(isp_context_t *ctx) {
 /* Stubs for each Pass */
 int isp_pass_black_level_subtraction(isp_context_t *ctx, img_t *frame) {
   printf("  [PASS] %s()\n", __func__);
+  if (!ctx || !frame) {
+    printf("%s: Input is NULL\n", __func__);
+    return -1;
+  }
+
+  if (frame->format != IMG_FMT_BAYER_RGGB &&
+      frame->format != IMG_FMT_BAYER_BGGR &&
+      frame->format != IMG_FMT_BAYER_GBRG &&
+      frame->format != IMG_FMT_BAYER_GRBG) {
+    printf(" -> ERROR: %s: Input format must be a RAW Bayer pattern\n",
+           __func__);
+    return -1;
+  }
+
+  if (frame->planes[0] == NULL) {
+    printf("%s: NULL plane\n", __func__);
+    return -1;
+  }
+
+  uint32_t total_pixel = frame->height * frame->width;
+  uint8_t *pixel = frame->planes[0];
+  uint16_t black_level = ctx->config.black_level;
+  for (size_t i = 0; i < total_pixel; i++) {
+    if (pixel[i] > black_level) {
+      pixel[i] -= (uint8_t)black_level;
+    } else {
+      pixel[i] = 0;
+    }
+  }
   return 0;
 }
 

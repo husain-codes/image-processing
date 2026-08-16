@@ -6,6 +6,10 @@ size_t img_format_bytes_per_pixel(img_format_t format) {
   case IMG_FMT_UNKNOWN:
     return 0;
   case IMG_FMT_GRAY8:
+  case IMG_FMT_BAYER_RGGB:
+  case IMG_FMT_BAYER_BGGR:
+  case IMG_FMT_BAYER_GBRG:
+  case IMG_FMT_BAYER_GRBG:
     return 1;
   case IMG_FMT_RGB24:
   case IMG_FMT_BGR24:
