@@ -110,11 +110,97 @@ int isp_pass_black_level_subtraction(isp_context_t *ctx, img_t *frame) {
 
 int isp_pass_auto_white_balance_stats(isp_context_t *ctx, const img_t *frame) {
   printf("  [PASS] %s()\n", __func__);
+  if (!ctx || !frame || !frame->planes[0]) {
+    printf(" -> ERROR: NULL pointer passed to %s\n", __func__);
+    return -1;
+  }
+
+  if (frame->format != IMG_FMT_BAYER_RGGB) {
+    printf(
+        " -> ERROR: Unsupported Bayer format in %s (Currently expects RGGB)\n",
+        __func__);
+    return -1;
+  }
+
+  uint32_t width = frame->width;
+  uint32_t height = frame->height;
+  const uint8_t *pixel = frame->planes[0];
+  size_t sum_r = 0, sum_g = 0, sum_b = 0;
+  size_t count_r = 0, count_g = 0, count_b = 0;
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      uint8_t value = pixel[y * width + x];
+      if (!(y & 1) && !(x & 1)) {
+        count_r++;
+        sum_r += value;
+      } else if ((y & 1) && (x & 1)) {
+        sum_b += value;
+        count_b++;
+      } else {
+        sum_g += value;
+        count_g++;
+      }
+    }
+  }
+
+  if (count_r == 0 || count_b == 0 || count_g == 0) {
+    printf(" -> ERROR: No pixels found for one of the channels!\n");
+    return -1;
+  }
+  float avg_r = (float)sum_r / count_r;
+  float avg_g = (float)sum_g / count_g;
+  float avg_b = (float)sum_b / count_b;
+
+  // Prevent division by zero if a channel is completely dark
+  if (avg_r < 1.0f)
+    avg_r = 1.0f;
+  if (avg_g < 1.0f)
+    avg_g = 1.0f;
+  if (avg_b < 1.0f)
+    avg_b = 1.0f;
+
+  ctx->r_gain = avg_g / avg_r;
+  ctx->g_gain = 1.0f;
+  ctx->b_gain = avg_g / avg_b;
   return 0;
 }
 
 int isp_pass_apply_white_balance(isp_context_t *ctx, img_t *frame) {
   printf("  [PASS] %s()\n", __func__);
+  if (!ctx || !frame || !frame->planes[0]) {
+    printf(" -> ERROR: NULL pointer passed to %s\n", __func__);
+    return -1;
+  }
+
+  if (frame->format != IMG_FMT_BAYER_RGGB) {
+    printf(" -> ERROR: Unsupported Bayer format in %s\n", __func__);
+    return -1;
+  }
+
+  uint32_t width = frame->width;
+  uint32_t height = frame->height;
+  uint8_t *pixel = frame->planes[0];
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      size_t idx = y * width + x;
+      uint8_t value = pixel[idx];
+      if (!(y & 1) && !(x & 1)) {
+        // Red pixel
+        float new_val = value * ctx->r_gain;
+        // printf(" -> DEBUG: R pixel at (%d,%d): %u * %.2f = %.2f\n", x, y,
+        // value, ctx->r_gain, new_val);
+        if (new_val > 255.0f)
+          new_val = 255.0f;
+        pixel[idx] = (uint8_t)(new_val + 0.5f);
+      } else if ((y & 1) && (x & 1)) {
+        // Blue pixel
+        float new_val = value * ctx->b_gain;
+        if (new_val > 255.0f)
+          new_val = 255.0f;
+        pixel[idx] = (uint8_t)(new_val + 0.5f);
+      }
+    }
+  }
   return 0;
 }
 
