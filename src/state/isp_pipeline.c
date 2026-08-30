@@ -206,6 +206,106 @@ int isp_pass_apply_white_balance(isp_context_t *ctx, img_t *frame) {
 
 int isp_pass_demosaic(isp_context_t *ctx, const img_t *src, img_t *dst) {
   printf("  [PASS] %s()\n", __func__);
+  if (!ctx || !src || !dst) {
+    printf(" -> ERROR: NULL pointer passed to %s\n", __func__);
+    return -1;
+  }
+  uint32_t width = src->width;
+  uint32_t height = src->height;
+  if (dst->width != width || dst->height != height) {
+    printf(" -> ERROR: source and destination metadata are different %s\n",
+           __func__);
+    return -1;
+  }
+
+  if (src->format != IMG_FMT_BAYER_RGGB) {
+    printf(" -> ERROR: src image format must be BAYER_RGGB in %s\n", __func__);
+    return -1;
+  }
+
+  if (dst->format != IMG_FMT_RGB24) {
+    printf(" -> ERROR:  dst image format should be RGB24 %s\n", __func__);
+    return -1;
+  }
+  int bpp = img_format_bytes_per_pixel(dst->format);
+  const uint8_t *src_pixel = src->planes[0];
+  uint8_t *dst_pixel = dst->planes[0];
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      size_t src_idx = y * width + x;
+      uint8_t value = src_pixel[src_idx];
+      dst_pixel = dst->planes[0] + y * dst->stride[0] + x * bpp;
+
+      int left = (x > 0) ? x - 1 : x;
+      int right = (x < width - 1) ? x + 1 : x;
+      int top = (y > 0) ? y - 1 : y;
+      int bot = (y < height - 1) ? y + 1 : y;
+
+      if (!(y & 1) && !(x & 1)) {
+        // Red Pixel
+        dst_pixel[0] = value; // R
+        uint32_t g_sum =
+            src_pixel[y * width + right] + src_pixel[y * width + left] +
+            src_pixel[top * width + x] + src_pixel[bot * width + x];
+        uint32_t b_sum =
+            src_pixel[bot * width + right] + src_pixel[top * width + right] +
+            src_pixel[bot * width + left] + src_pixel[top * width + left];
+        dst_pixel[1] =
+            (uint8_t)((g_sum + 2) /
+                      4); // Adding 2 gives nearest-integer rounding--> Green
+        dst_pixel[2] =
+            (uint8_t)((b_sum + 2) /
+                      4); // Adding 2 gives nearest-integer rounding--> Blue
+
+      } else if ((y & 1) && (x & 1)) {
+        // Blue pixel
+        dst_pixel[2] = value; // B
+        uint32_t g_sum =
+            src_pixel[top * width + x] + src_pixel[bot * width + x] +
+            src_pixel[y * width + right] + src_pixel[y * width + left];
+
+        uint32_t r_sum =
+            src_pixel[top * width + left] + src_pixel[top * width + right] +
+            src_pixel[bot * width + right] + src_pixel[bot * width + left];
+
+        dst_pixel[0] =
+            (uint8_t)((r_sum + 2) /
+                      4); // Adding 2 gives nearest-integer rounding--> Red
+        dst_pixel[1] =
+            (uint8_t)((g_sum + 2) /
+                      4); // Adding 2 gives nearest-integer rounding--> Green
+      } else {
+        // green pixel
+        dst_pixel[1] = value; // G
+        if (y & 1) {
+          // Green pixel on Blue row
+          uint32_t b_sum =
+              src_pixel[y * width + right] + src_pixel[y * width + left];
+          uint32_t r_sum =
+              src_pixel[top * width + x] + src_pixel[bot * width + x];
+          dst_pixel[2] =
+              (uint8_t)((b_sum + 1) /
+                        2); // Adding 1 gives nearest-integer rounding--> Blue
+          dst_pixel[0] =
+              (uint8_t)((r_sum + 1) /
+                        2); // Adding 1 gives nearest-integer rounding--> Red
+        } else {
+          // Green pixel on Red row
+          uint32_t r_sum =
+              src_pixel[y * width + right] + src_pixel[y * width + left];
+          uint32_t b_sum =
+              src_pixel[top * width + x] + src_pixel[bot * width + x];
+          dst_pixel[0] =
+              (uint8_t)((r_sum + 1) /
+                        2); // Adding 1 gives nearest-integer rounding--> Red
+          dst_pixel[2] =
+              (uint8_t)((b_sum + 1) /
+                        2); // Adding 1 gives nearest-integer rounding--> Blue
+        }
+      }
+    }
+  }
   return 0;
 }
 
